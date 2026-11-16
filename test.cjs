@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { halftone } = require('./script.js');
+const { prepare, halftone } = require('./script.js');
 const width = 64, count = width * width;
 function source(value) { return {gray: new Float32Array(count).fill(value), mask: new Uint8Array(count).fill(1)}; }
 // Full-density layers fill every pixel, each retaining its exclusive checkerboard parity.
@@ -19,8 +19,16 @@ for (let p = 0; p < count; p++) {
   assert.equal(r / 255, (p % width + Math.floor(p / width)) & 1);
   r ? white++ : black++;
 }
-assert.ok(Math.abs(black - count / 4) < count * .03);
-assert.ok(Math.abs(white - count / 4) < count * .03);
+const expected = (.12 + .88 * Math.pow(.5,.8)) * count / 2;
+assert.ok(Math.abs(black - expected) < count * .03);
+assert.ok(Math.abs(white - expected) < count * .03);
+// A white subject touching the top edge must not become another background seed.
+const rgba=new Uint8ClampedArray(count*4);
+for(let p=0;p<count;p++)rgba[p*4+3]=255;
+for(let y=0;y<40;y++)for(let x=20;x<44;x++)rgba.fill(255,(y*width+x)*4,(y*width+x)*4+4);
+const prepared=prepare(rgba,width,width);
+assert.equal(prepared.mask[10*width+30],1);
+assert.equal(prepared.mask[10*width+5],0);
 const empty = source(.5); empty.mask.fill(0);
 assert.ok(halftone(empty,empty,width,width).every(v => v === 0));
 console.log('PASS: dense checkerboard, binary RGB/alpha, tone coverage, transparency');

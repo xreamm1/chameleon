@@ -5,11 +5,14 @@ function prepare(data, width = SIZE, height = SIZE) {
   let head = 0, tail = 0;
   // Only seed locally uniform edges: a detailed subject touching an edge is preserved.
   const seeds = [];
+  const corners=[0,width-1,(height-1)*width,n-1].filter(p=>data[p*4+3]>=128);
+  const distance=(a,b)=>Math.max(...[0,1,2].map(c=>Math.abs(data[a*4+c]-data[b*4+c])));
+  const background=corners.sort((a,b)=>corners.filter(p=>distance(b,p)<=25).length-corners.filter(p=>distance(a,p)<=25).length)[0];
   function edge(p, next) {
     const i = p * 4, j = next * 4;
     if (data[i + 3] < 128) { seeds.push([p, null]); return; }
-    if (Math.max(Math.abs(data[i]-data[j]),Math.abs(data[i+1]-data[j+1]),Math.abs(data[i+2]-data[j+2])) <= 25)
-      seeds.push([p, [data[i],data[i+1],data[i+2]]]);
+    if (background!==undefined && distance(p,background)<=25 && Math.max(Math.abs(data[i]-data[j]),Math.abs(data[i+1]-data[j+1]),Math.abs(data[i+2]-data[j+2])) <= 25)
+      seeds.push([p, [data[background*4],data[background*4+1],data[background*4+2]]]);
   }
   for (let x=0;x<width;x++) { edge(x, Math.min(width-1,x+1)); edge((height-1)*width+x,(height-1)*width+Math.max(0,x-1)); }
   for (let y=0;y<height;y++) { edge(y*width,Math.min(height-1,y+1)*width); edge(y*width+width-1,Math.max(0,y-1)*width+width-1); }
@@ -49,7 +52,9 @@ function halftone(light,dark,width=SIZE,height=SIZE){
         const x=direction===1?step:width-1-step,p=y*width+x;
         // Every pixel belongs to one layer; adjacent same-layer sites are <= 2 px apart.
         if(((x+y)&1)!==parity||!source.mask[p])continue;
-        const value=(parity?source.gray[p]:1-source.gray[p])+errors[p];
+        // Keep faint outlines and dark clothing visible in the limited half-pixel tonal range.
+        const tone=parity?source.gray[p]:1-source.gray[p];
+        const value=(.12+.88*Math.pow(tone,.8))+errors[p];
         const ink=value>=.5?1:0,error=value-ink;
         if(ink){const i=p*4;out[i]=out[i+1]=out[i+2]=parity?255:0;out[i+3]=255;}
         // Diffuse on the checkerboard itself, avoiding the old repeating 8 px pattern.
@@ -70,7 +75,7 @@ if(typeof document!=='undefined'){
     download.disabled=compare.disabled=true;
     if(!images.light||!images.dark){status.hidden=false;status.textContent='Загрузите два изображения';return;}
     const output=halftone(images.light,images.dark);ctx.putImageData(new ImageData(output,SIZE,SIZE),0,0);
-    for(const c of document.querySelectorAll('#split canvas'))c.getContext('2d').putImageData(new ImageData(output,SIZE,SIZE),0,0);
+    for(const c of document.querySelectorAll('#split .sticker'))c.getContext('2d').putImageData(new ImageData(output,SIZE,SIZE),0,0);
     status.hidden=true;download.disabled=compare.disabled=false;
   }
   for(const id of ['light','dark'])document.querySelector('#'+id).addEventListener('change',async event=>{
@@ -80,7 +85,9 @@ if(typeof document!=='undefined'){
       if(!image.naturalWidth||!image.naturalHeight)throw Error('image');
       const c=document.createElement('canvas');c.width=c.height=SIZE;const context=c.getContext('2d',{willReadFrequently:true});
       const scale=Math.min(SIZE/image.naturalWidth,SIZE/image.naturalHeight),w=image.naturalWidth*scale,h=image.naturalHeight*scale;
-      context.drawImage(image,(SIZE-w)/2,(SIZE-h)/2,w,h);images[id]=prepare(context.getImageData(0,0,SIZE,SIZE).data);label.textContent=file.name;render();
+      context.drawImage(image,(SIZE-w)/2,(SIZE-h)/2,w,h);
+      const original=document.querySelector('#original-'+id);original.getContext('2d').clearRect(0,0,SIZE,SIZE);original.getContext('2d').drawImage(c,0,0);
+      images[id]=prepare(context.getImageData(0,0,SIZE,SIZE).data);label.textContent=file.name;render();
     }catch(error){if(version===versions[id]){label.textContent='Не удалось прочитать изображение. Выберите другой файл.';}}
     finally{URL.revokeObjectURL(url);}
   });
