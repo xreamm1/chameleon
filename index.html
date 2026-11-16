@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chameleon — генератор стикеров</title><link rel="stylesheet" href="style.css"><script defer src="script.js"></script></head>
+<body><main>
+<section class="uploads" aria-label="Исходные изображения">
+<label class="upload"><span class="number">01 / WHITE</span><strong>Светлая тема</strong><span>Фото для белого фона #FFFFFF</span><input id="light" type="file" accept="image/*" aria-label="Светлая тема"><small id="light-status">Выберите изображение</small></label>
+<label class="upload"><span class="number">02 / BLACK</span><strong>Тёмная тема</strong><span>Фото для чёрного фона #000000</span><input id="dark" type="file" accept="image/*" aria-label="Тёмная тема"><small id="dark-status">Выберите изображение</small></label>
+</section>
+<section class="preview"><div class="toolbar"><span>ПРЕДПРОСМОТР · 512 × 512</span><select id="background" aria-label="Фон предпросмотра"><option value="white">Белый</option><option value="black">Чёрный</option><option value="grid">Прозрачная сетка</option></select></div><div id="stage" class="stage white"><canvas id="result" width="512" height="512" aria-label="Готовый стикер"></canvas><p id="status" role="status">Загрузите два изображения</p></div><button id="compare" disabled aria-expanded="false">Тест: Сравнение тем</button><div id="split" hidden><div class="white"><canvas width="512" height="512" aria-label="Стикер на белом фоне"></canvas></div><div class="black"><canvas width="512" height="512" aria-label="Стикер на чёрном фоне"></canvas></div></div></section>
+<button id="download" disabled>Скачать PNG (512x512)</button>
+</main></body></html>
