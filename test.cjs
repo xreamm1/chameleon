@@ -19,8 +19,8 @@ for (let p = 0; p < count; p++) {
   assert.equal(r / 255, (p % width + Math.floor(p / width)) & 1);
   r ? white++ : black++;
 }
-assert.ok(Math.abs(black - Math.pow(.5,1.35)*count/2) < count * .03);
-assert.ok(Math.abs(white - Math.pow(.5,2.2)*count/2) < count * .03);
+assert.ok(Math.abs(black - Math.pow(.5,1.2)*count/2) < count * .03);
+assert.ok(Math.abs(white - Math.pow(.5,1.8)*count/2) < count * .03);
 // A bright single-pixel line on the opposite lattice must survive on the dark theme.
 const line=source(.55),transparent=source(1);transparent.mask.fill(0);
 for(let x=20;x<40;x+=2)line.gray[20*width+x]=1;

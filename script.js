@@ -84,10 +84,10 @@ function halftone(light,dark,width=SIZE,height=SIZE){
           let peak=tone;
           for(const q of [x>0?p-1:-1,x<width-1?p+1:-1,y>0?p-width:-1,y<height-1?p+width:-1])
             if(q>=0&&source.mask[q])peak=Math.max(peak,source.gray[q]);
-          if(peak>.94&&peak-tone>.16)tone=Math.max(tone,.9);
+          if(peak>.94&&peak-tone>.16)tone=1;
         }
         // Separate white facial marks from pale colours instead of filling both with similar noise.
-        tone=Math.pow(tone,parity?2.2:1.35);
+        tone=Math.pow(tone,parity?1.8:1.2);
         const value=tone+errors[p];
         const ink=value>=.5?1:0,error=value-ink;
         if(ink){const i=p*4;out[i]=out[i+1]=out[i+2]=parity?255:0;out[i+3]=255;}
