@@ -1,7 +1,5 @@
 'use strict';
 const SIZE = 512;
-// Ordered thresholds vary density while retaining separate 2 px lattices.
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 function prepare(data, width = SIZE, height = SIZE) {
   const n = width * height, removed = new Uint8Array(n), queued = new Uint8Array(n), queue = new Int32Array(n);
   let head = 0, tail = 0;
@@ -38,14 +36,31 @@ function prepare(data, width = SIZE, height = SIZE) {
 }
 function halftone(light,dark,width=SIZE,height=SIZE){
   const out=new Uint8ClampedArray(width*height*4);
-  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
-    // Black at (even, even), white at (odd, odd): no shared pixel.
-    if((x&1)!==(y&1))continue;
-    const white=Boolean(x&1),source=white?dark:light,p=y*width+x;
-    const density=white?source.gray[p]:1-source.gray[p];
-    const threshold=(BAYER[((y>>1)%4)*4+((x>>1)%4)]+.5)/16;
-    if(source.mask[p]&&density>=threshold){const i=p*4;out[i]=out[i+1]=out[i+2]=white?255:0;out[i+3]=255;}
-  }return out;
+  for(const [parity,source] of [[0,light],[1,dark]]){
+    const errors=new Float32Array(width*height);
+    function spread(x,y,error,weight){
+      if(x<0||x>=width||y>=height)return;
+      const p=y*width+x;
+      if(source.mask[p])errors[p]+=error*weight;
+    }
+    for(let y=0;y<height;y++){
+      const direction=y%2===0?1:-1;
+      for(let step=0;step<width;step++){
+        const x=direction===1?step:width-1-step,p=y*width+x;
+        // Every pixel belongs to one layer; adjacent same-layer sites are <= 2 px apart.
+        if(((x+y)&1)!==parity||!source.mask[p])continue;
+        const value=(parity?source.gray[p]:1-source.gray[p])+errors[p];
+        const ink=value>=.5?1:0,error=value-ink;
+        if(ink){const i=p*4;out[i]=out[i+1]=out[i+2]=parity?255:0;out[i+3]=255;}
+        // Diffuse on the checkerboard itself, avoiding the old repeating 8 px pattern.
+        spread(x+2*direction,y,error,7/16);
+        spread(x-direction,y+1,error,3/16);
+        spread(x+direction,y+1,error,5/16);
+        spread(x,y+2,error,1/16);
+      }
+    }
+  }
+  return out;
 }
 if(typeof module!=='undefined')module.exports={prepare,halftone};
 if(typeof document!=='undefined'){
