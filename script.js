@@ -35,7 +35,32 @@ function prepare(data, width = SIZE, height = SIZE) {
   function percentile(f){let sum=0;for(let i=0;i<256;i++){sum+=hist[i];if(sum>=Math.max(1,count*f))return i;}return 255;}
   const low=percentile(.01),high=percentile(.99);
   for(let p=0;p<n;p++) if(mask[p]) gray[p]=high>low?Math.max(0,Math.min(1,(gray[p]-low)/(high-low))):gray[p]/255;
+  enhanceDetails(gray,mask,width,height);
   return {gray,mask};
+}
+function enhanceDetails(gray,mask,width,height){
+  // Mask-aware local statistics separate broad shading from facial and clothing details.
+  const stride=width+1,length=stride*(height+1);
+  const sum=new Float64Array(length),square=new Float64Array(length),count=new Uint32Array(length);
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const p=y*width+x,i=(y+1)*stride+x+1,v=mask[p]?gray[p]:0;
+    sum[i]=v+sum[i-1]+sum[i-stride]-sum[i-stride-1];
+    square[i]=v*v+square[i-1]+square[i-stride]-square[i-stride-1];
+    count[i]=mask[p]+count[i-1]+count[i-stride]-count[i-stride-1];
+  }
+  function area(table,x,y,r){
+    const l=Math.max(0,x-r),t=Math.max(0,y-r),rr=Math.min(width,x+r+1),b=Math.min(height,y+r+1);
+    return table[b*stride+rr]-table[t*stride+rr]-table[b*stride+l]+table[t*stride+l];
+  }
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const p=y*width+x;if(!mask[p])continue;
+    const samples=area(count,x,y,12),mean=area(sum,x,y,12)/samples;
+    const deviation=Math.sqrt(Math.max(0,area(square,x,y,12)/samples-mean*mean));
+    const gain=Math.min(3.5,.18/Math.max(.045,deviation));
+    const local=.5+(gray[p]-mean)*gain;
+    const fineMean=area(sum,x,y,2)/area(count,x,y,2);
+    gray[p]=Math.max(0,Math.min(1,.55*gray[p]+.45*local+.65*(gray[p]-fineMean)));
+  }
 }
 function halftone(light,dark,width=SIZE,height=SIZE){
   const out=new Uint8ClampedArray(width*height*4);
@@ -52,9 +77,8 @@ function halftone(light,dark,width=SIZE,height=SIZE){
         const x=direction===1?step:width-1-step,p=y*width+x;
         // Every pixel belongs to one layer; adjacent same-layer sites are <= 2 px apart.
         if(((x+y)&1)!==parity||!source.mask[p])continue;
-        // Keep faint outlines and dark clothing visible in the limited half-pixel tonal range.
         const tone=parity?source.gray[p]:1-source.gray[p];
-        const value=(.12+.88*Math.pow(tone,.8))+errors[p];
+        const value=tone+errors[p];
         const ink=value>=.5?1:0,error=value-ink;
         if(ink){const i=p*4;out[i]=out[i+1]=out[i+2]=parity?255:0;out[i+3]=255;}
         // Diffuse on the checkerboard itself, avoiding the old repeating 8 px pattern.
@@ -67,7 +91,7 @@ function halftone(light,dark,width=SIZE,height=SIZE){
   }
   return out;
 }
-if(typeof module!=='undefined')module.exports={prepare,halftone};
+if(typeof module!=='undefined')module.exports={prepare,halftone,enhanceDetails};
 if(typeof document!=='undefined'){
   const canvas=document.querySelector('#result'),ctx=canvas.getContext('2d'),images={light:null,dark:null},versions={light:0,dark:0};
   const status=document.querySelector('#status'),download=document.querySelector('#download'),compare=document.querySelector('#compare');

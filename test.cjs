@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { prepare, halftone } = require('./script.js');
+const { prepare, halftone, enhanceDetails } = require('./script.js');
 const width = 64, count = width * width;
 function source(value) { return {gray: new Float32Array(count).fill(value), mask: new Uint8Array(count).fill(1)}; }
 // Full-density layers fill every pixel, each retaining its exclusive checkerboard parity.
@@ -19,7 +19,7 @@ for (let p = 0; p < count; p++) {
   assert.equal(r / 255, (p % width + Math.floor(p / width)) & 1);
   r ? white++ : black++;
 }
-const expected = (.12 + .88 * Math.pow(.5,.8)) * count / 2;
+const expected = count / 4;
 assert.ok(Math.abs(black - expected) < count * .03);
 assert.ok(Math.abs(white - expected) < count * .03);
 // A white subject touching the top edge must not become another background seed.
@@ -31,4 +31,10 @@ assert.equal(prepared.mask[10*width+30],1);
 assert.equal(prepared.mask[10*width+5],0);
 const empty = source(.5); empty.mask.fill(0);
 assert.ok(halftone(empty,empty,width,width).every(v => v === 0));
+// Subtle local stripes remain separable after adapting broad illumination.
+const detail=source(.5);
+for(let y=0;y<width;y++)for(let x=0;x<width;x++)detail.gray[y*width+x]=.5+(x%4<2?.025:-.025);
+enhanceDetails(detail.gray,detail.mask,width,width);
+assert.ok(detail.gray[32*width+32]-detail.gray[32*width+34]>.05);
+assert.ok(detail.gray.every(v=>Number.isFinite(v)&&v>=0&&v<=1));
 console.log('PASS: dense checkerboard, binary RGB/alpha, tone coverage, transparency');
