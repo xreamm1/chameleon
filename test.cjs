@@ -19,9 +19,15 @@ for (let p = 0; p < count; p++) {
   assert.equal(r / 255, (p % width + Math.floor(p / width)) & 1);
   r ? white++ : black++;
 }
-const expected = count / 4;
-assert.ok(Math.abs(black - expected) < count * .03);
-assert.ok(Math.abs(white - expected) < count * .03);
+assert.ok(Math.abs(black - Math.pow(.5,1.35)*count/2) < count * .03);
+assert.ok(Math.abs(white - Math.pow(.5,2.2)*count/2) < count * .03);
+// A bright single-pixel line on the opposite lattice must survive on the dark theme.
+const line=source(.55),transparent=source(1);transparent.mask.fill(0);
+for(let x=20;x<40;x+=2)line.gray[20*width+x]=1;
+const withLine=halftone(transparent,line,width,width),withoutLine=halftone(transparent,source(.55),width,width);
+let lineInk=0,baseInk=0;
+for(let x=20;x<40;x++){lineInk+=withLine[(20*width+x)*4+3]>0;baseInk+=withoutLine[(20*width+x)*4+3]>0;}
+assert.ok(lineInk>baseInk);
 // A white subject touching the top edge must not become another background seed.
 const rgba=new Uint8ClampedArray(count*4);
 for(let p=0;p<count;p++)rgba[p*4+3]=255;

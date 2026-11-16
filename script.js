@@ -77,7 +77,17 @@ function halftone(light,dark,width=SIZE,height=SIZE){
         const x=direction===1?step:width-1-step,p=y*width+x;
         // Every pixel belongs to one layer; adjacent same-layer sites are <= 2 px apart.
         if(((x+y)&1)!==parity||!source.mask[p])continue;
-        const tone=parity?source.gray[p]:1-source.gray[p];
+        let tone=parity?source.gray[p]:1-source.gray[p];
+        // A one-pixel highlight may fall between this layer's checkerboard sites.
+        // Give it one adjacent site, rather than losing eyes and fine lettering.
+        if(parity&&tone<.9){
+          let peak=tone;
+          for(const q of [x>0?p-1:-1,x<width-1?p+1:-1,y>0?p-width:-1,y<height-1?p+width:-1])
+            if(q>=0&&source.mask[q])peak=Math.max(peak,source.gray[q]);
+          if(peak>.94&&peak-tone>.16)tone=Math.max(tone,.9);
+        }
+        // Separate white facial marks from pale colours instead of filling both with similar noise.
+        tone=Math.pow(tone,parity?2.2:1.35);
         const value=tone+errors[p];
         const ink=value>=.5?1:0,error=value-ink;
         if(ink){const i=p*4;out[i]=out[i+1]=out[i+2]=parity?255:0;out[i+3]=255;}
